@@ -88,7 +88,6 @@ NVMe namespace identification:
 
 ### NVMe/FC (Fibre Channel Transport)
 
-```text
 NVMe/FC:
   - NVMe commands encapsulated in FC frames
   - FC-4 type: 0x28 (NVMe)
@@ -98,24 +97,19 @@ NVMe/FC:
   - No IP network required
   - Lowest latency fabric transport
 
-NVMe/FC frame:
-  +--------+--------+--------+--------+--------+
-  | SOF    | FC Hdr | NVMe   | NVMe   | CRC/EOF|
-  |        | (D_ID, | Cmd    | Data   |        |
-  |        | S_ID,  | Capsule| Payload|        |
-  |        | Type=28)|       |        |        |
-  +--------+--------+--------+--------+--------+
+```mermaid
+graph LR
+    SOF["SOF"] --> HDR["FC Hdr (D_ID, S_ID, Type=28)"] --> CMD["NVMe Cmd Capsule"] --> DATA["NVMe Data Payload"] --> EOF["CRC/EOF"]
+```
 
 Requirements:
   - MDS 9000 with NVMe/FC support (9718, 9396 with NX-OS 9.x)
   - NVMe/FC capable HBA (Broadcom, Marvell/QLogic)
   - NVMe/FC capable storage array
   - Same zoning model as SCSI/FC (pWWN zoning)
-```
 
 ### NVMe/TCP
 
-```text
 NVMe/TCP:
   - NVMe commands encapsulated in TCP segments
   - Runs over standard Ethernet (no special hardware)
@@ -125,12 +119,10 @@ NVMe/TCP:
   - Higher latency than FC/RDMA (TCP overhead)
   - Easiest to deploy (existing IP network)
 
-NVMe/TCP PDU (Protocol Data Unit):
-  +--------+--------+--------+
-  | PDU Hdr| NVMe   | Data   |
-  | (8B)   | Cmd/   | (opt)  |
-  |        | Rsp    |        |
-  +--------+--------+--------+
+```mermaid
+graph LR
+    HDR["PDU Hdr (8B)"] --> CMD["NVMe Cmd/Rsp"] --> DATA["Data (opt)"]
+```
 
 Requirements:
   - Standard Ethernet NIC (no special HBA)
@@ -143,7 +135,6 @@ Nexus support:
   - Nexus 9000: standard IP forwarding (no NVMe-specific config)
   - QoS recommended: prioritize NVMe/TCP traffic
   - ECMP for multipath
-```
 
 ### NVMe/RoCE (RDMA over Converged Ethernet)
 
@@ -434,7 +425,6 @@ mds# clear nvme-fc login vsan 100 (force re-login)
 
 ### iSCSI Architecture
 
-```text
 iSCSI components:
   - Initiator: host requesting storage (server)
   - Target: storage device presenting LUNs
@@ -447,18 +437,12 @@ iSCSI components:
   - Session: TCP connection between initiator and target
   - LUN: logical unit presented to initiator
 
-iSCSI protocol stack:
-  +------------------+
-  | SCSI Commands    |
-  +------------------+
-  | iSCSI Layer      |  (encapsulation, session mgmt)
-  +------------------+
-  | TCP              |  (port 3260)
-  +------------------+
-  | IP               |
-  +------------------+
-  | Ethernet         |
-  +------------------+
+```mermaid
+graph TD
+    SCSI["SCSI Commands"] --> ISCSI["iSCSI Layer (encapsulation, session mgmt)"]
+    ISCSI --> TCP["TCP (port 3260)"]
+    TCP --> IP["IP"]
+    IP --> ETH["Ethernet"]
 ```
 
 ### iSCSI Session Establishment
@@ -557,25 +541,21 @@ nexus# show iscsi statistics
 
 ### MDS iSCSI Line Cards
 
-```text
 MDS 9718 iSCSI capabilities:
   - 10/25G iSCSI line card (Ethernet ports)
   - iSCSI target and initiator
   - iSCSI-to-FC bridging (iSCSI hosts access FC storage)
   - Hardware offload for iSCSI
 
-Use case: iSCSI-to-FC gateway
-  +--------+     +--------+     +--------+
-  | Server |     | MDS    |     | FC     |
-  | (iSCSI)|---->| (iSCSI |---->| Storage|
-  |        | Eth |  to FC)| FC  |        |
-  +--------+     | bridge |     +--------+
-                 +--------+
+```mermaid
+graph LR
+    SRV["Server (iSCSI)"] -->|"Eth"| MDS["MDS (iSCSI to FC bridge)"]
+    MDS -->|"FC"| ST["FC Storage"]
+```
 
   Server uses iSCSI (IP network)
   MDS bridges to FC (VSAN, zoning)
   Storage uses native FC
-```
 
 ### MDS iSCSI Configuration
 
@@ -781,25 +761,23 @@ Configure NVMe/FC zoning on MDS 9396 and verify NVMe host-to-target connectivity
 
 ### Topology
 
-```text
-+------------------+     +------------------+
-| NVMe Host 1      |     | NVMe Host 2      |
-| HBA: Broadcom    |     | HBA: Broadcom    |
-| WWPN: ...01:01   |     | WWPN: ...02:01   |
-+--------+---------+     +---------+--------+
-         |                          |
-+--------+--------------------------+--------+
-|            MDS 9396                        |
-|            VSAN 100 (NVME_SAN)             |
-|            32G FC ports                    |
-+--------+--------------------------+--------+
-         |                          |
-+--------+---------+     +---------+--------+
-| NetApp AFF       |     | NetApp AFF       |
-| Target Port A    |     | Target Port B    |
-| WWPN: ...84:01   |     | WWPN: ...84:02   |
-| NVMe Subsystem   |     | NVMe Subsystem   |
-+------------------+     +------------------+
+```mermaid
+graph TD
+    subgraph "NVMe Hosts"
+        H1["NVMe Host 1 - HBA: Broadcom - WWPN: ...01:01"]
+        H2["NVMe Host 2 - HBA: Broadcom - WWPN: ...02:01"]
+    end
+    subgraph "MDS 9396"
+        MDS["VSAN 100 (NVME_SAN) - 32G FC ports"]
+    end
+    subgraph "Storage"
+        T1["NetApp AFF Target Port A - WWPN: ...84:01 - NVMe Subsystem"]
+        T2["NetApp AFF Target Port B - WWPN: ...84:02 - NVMe Subsystem"]
+    end
+    H1 --- MDS
+    H2 --- MDS
+    MDS --- T1
+    MDS --- T2
 ```
 
 ### Configuration
@@ -896,13 +874,9 @@ Configure iSCSI target on Nexus 9000 and verify initiator connectivity.
 
 ### Topology
 
-```text
-+------------------+          +------------------+
-| Linux Server     |          | Nexus 9396       |
-| (iSCSI Initator) |----------| (iSCSI Target)   |
-| IQN: ...host1    | Eth1/1   | IQN: ...target1  |
-| IP: 10.10.1.10  |          | IP: 10.10.1.1    |
-+------------------+          +------------------+
+```mermaid
+graph LR
+    SRV["Linux Server (iSCSI Initiator) - IQN: ...host1 - IP: 10.10.1.10"] -->|"Eth1/1"| NEX["Nexus 9396 (iSCSI Target) - IQN: ...target1 - IP: 10.10.1.1"]
 ```
 
 ### Nexus Configuration

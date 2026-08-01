@@ -893,20 +893,26 @@ NX-OS YANG models:
   - Cisco-native: cisco-nx-os-device (most complete)
   - IETF: ietf-interfaces, ietf-bgp (standard but limited NX-OS support)
   - OpenConfig: openconfig-interfaces, openconfig-bgp (vendor-neutral)
+```
 
-Cisco-native model hierarchy:
-  System
-  ├── intf-items (interfaces)
-  │   ├── phys-items (physical interfaces)
-  │   └── aggr-items (port channels)
-  ├── bgp-items (BGP)
-  │   └── inst-items
-  │       └── dom-items (VRF)
-  │           └── peer-items (neighbors)
-  ├── ospf-items (OSPF)
-  ├── vlan-items (VLANs)
-  └── bd-items (bridge domains / VXLAN)
+```mermaid
+graph TD
+    System["System"]
+    System --> intf["intf-items (interfaces)"]
+    System --> bgp["bgp-items (BGP)"]
+    System --> ospf["ospf-items (OSPF)"]
+    System --> vlan["vlan-items (VLANs)"]
+    System --> bd["bd-items (bridge domains / VXLAN)"]
 
+    intf --> phys["phys-items (physical interfaces)"]
+    intf --> aggr["aggr-items (port channels)"]
+
+    bgp --> inst["inst-items"]
+    inst --> dom["dom-items (VRF)"]
+    dom --> peer["peer-items (neighbors)"]
+```
+
+```text
 Finding YANG models:
   - GitHub: github.com/YangModels/yang
   - Cisco: developer.cisco.com/docs/nx-os

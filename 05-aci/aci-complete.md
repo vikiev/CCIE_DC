@@ -18,24 +18,32 @@
 
 ### Spine/Leaf Topology
 
-```text
-                    +----------+     +----------+
-                    | Spine 1  |     | Spine 2  |
-                    | (93180)  |     | (93180)  |
-                    +--+----+--+     +--+----+--+
-                       |    |          |    |
-              +--------+    +----+-----+    +--------+
-              |                  |                   |
-         +----+----+       +----+----+         +----+----+
-         | Leaf 101|       | Leaf 102|         | Leaf 103|
-         | (9396)  |       | (9396)  |         | (9396)  |
-         +----+----+       +----+----+         +----+----+
-              |                  |                   |
-         +----+----+       +----+----+         +----+----+
-         |Servers/ |       |Servers/ |         | Border  |
-         | Hypervisors      | Storage |         | (L3Out) |
-         +---------+       +---------+         +---------+
+```mermaid
+graph TD
+    subgraph Spines["Spine Layer"]
+        S1["Spine 1<br/>(93180)"]
+        S2["Spine 2<br/>(93180)"]
+    end
 
+    subgraph Leafs["Leaf Layer"]
+        L101["Leaf 101<br/>(9396)"]
+        L102["Leaf 102<br/>(9396)"]
+        L103["Leaf 103<br/>(9396)"]
+    end
+
+    S1 --> L101
+    S1 --> L102
+    S1 --> L103
+    S2 --> L101
+    S2 --> L102
+    S2 --> L103
+
+    L101 --> SRV1["Servers /<br/>Hypervisors"]
+    L102 --> SRV2["Servers /<br/>Storage"]
+    L103 --> BORDER["Border<br/>(L3Out)"]
+```
+
+```text
 Design principles:
   - Every leaf connects to every spine (full mesh)
   - Spines do NOT connect to each other
@@ -125,23 +133,28 @@ Verification:
 
 ### Hierarchy
 
-```text
-Tenant (isolation boundary)
-├── VRF (L3 routing domain, like a router)
-│   └── BD (Bridge Domain, L2 segment)
-│       └── Subnet (gateway IP, like VLAN SVI)
-├── Application Profile (AP, logical grouping)
-│   └── EPG (Endpoint Group, policy boundary)
-│       ├── Static Binding (port/VLAN)
-│       ├── Dynamic Binding (VMM domain)
-│       └── Contracts (policy between EPGs)
-├── Contracts
-│   ├── Subject (grouping of filters)
-│   └── Filter (protocol/port match)
-│       └── Entry (specific port range)
-├── L3Out (external routing)
-│   └── External EPG (external network)
-└── Policies (interface, QoS, etc.)
+```mermaid
+graph TD
+    T["Tenant (isolation boundary)"]
+    T --> VRF["VRF (L3 routing domain, like a router)"]
+    VRF --> BD["BD (Bridge Domain, L2 segment)"]
+    BD --> SUB["Subnet (gateway IP, like VLAN SVI)"]
+
+    T --> AP["Application Profile (AP, logical grouping)"]
+    AP --> EPG["EPG (Endpoint Group, policy boundary)"]
+    EPG --> SB["Static Binding (port/VLAN)"]
+    EPG --> DB["Dynamic Binding (VMM domain)"]
+    EPG --> CON["Contracts (policy between EPGs)"]
+
+    T --> CONTRACTS["Contracts"]
+    CONTRACTS --> SUBJ["Subject (grouping of filters)"]
+    CONTRACTS --> FILT["Filter (protocol/port match)"]
+    FILT --> ENTRY["Entry (specific port range)"]
+
+    T --> L3OUT["L3Out (external routing)"]
+    L3OUT --> EEPG["External EPG (external network)"]
+
+    T --> POL["Policies (interface, QoS, etc.)"]
 ```
 
 ### Tenant -> VRF -> BD -> Subnet
@@ -447,19 +460,14 @@ Nexus Dashboard Orchestrator (NDO, formerly MSO):
   - Stretched policy across sites
   - Centralized policy management
   - Sites connected via IPN (Inter-Pod Network) or WAN
+```
 
-Architecture:
-  +------------------+
-  | NDO (Orchestrator)|
-  +--------+---------+
-           |
-  +--------+---------+---------+
-  |                  |         |
-+--+---+        +---+--+  +---+--+
-|Site 1|        |Site 2|  |Site 3|
-| APIC |        | APIC |  | APIC |
-| Fabric|       | Fabric|  | Fabric|
-+------+        +------+  +------+
+```mermaid
+graph TD
+    NDO["NDO (Orchestrator)"]
+    NDO --> Site1["Site 1<br/>APIC<br/>Fabric"]
+    NDO --> Site2["Site 2<br/>APIC<br/>Fabric"]
+    NDO --> Site3["Site 3<br/>APIC<br/>Fabric"]
 ```
 
 ### Stretched BD/EPG
@@ -873,26 +881,15 @@ Create a complete ACI tenant with 3 EPGs, contracts, and BGP L3Out.
 
 ### Topology
 
-```text
-+----------+     +----------+
-| Leaf 101 |     | Leaf 102 |
-| (Servers)|     | (Servers)|
-+----+-----+     +-----+----+
-     |                  |
-+----+-----+     +-----+----+
-| Spine 201|     | Spine 202|
-+----+-----+     +-----+----+
-     |                  |
-+----+-----+
-| Leaf 103 |
-| (Border) |
-+----+-----+
-     |
-+----+-----+
-| Ext Router|
-| (BGP AS   |
-|  65100)   |
-+-----------+
+```mermaid
+graph TD
+    L101["Leaf 101<br/>(Servers)"] --> S201["Spine 201"]
+    L101 --> S202["Spine 202"]
+    L102["Leaf 102<br/>(Servers)"] --> S201
+    L102 --> S202
+    S201 --> L103["Leaf 103<br/>(Border)"]
+    S202 --> L103
+    L103 --> EXT["Ext Router<br/>(BGP AS 65100)"]
 ```
 
 ### Configuration (APIC REST API)
@@ -1338,20 +1335,17 @@ ACI Cloud (formerly Cloud ACI):
   - Cloud APIC: manages cloud resources with ACI policy model
   - Same Tenant/VRF/BD/EPG/Contract model
   - Cloud resources (VMs, VNets, subnets) mapped to ACI objects
+```
 
-Architecture:
-  +------------------+
-  | Cloud APIC       |  (manages cloud + on-prem)
-  +--------+---------+
-           |
-  +--------+---------+---------+
-  |                  |         |
-+--+---+        +---+--+  +---+--+
-|On-prem|       | AWS  |  | Azure|
-| ACI   |       | VPC  |  | VNet |
-| Fabric|       |      |  |      |
-+------+        +------+  +------+
+```mermaid
+graph TD
+    CAPIC["Cloud APIC<br/>(manages cloud + on-prem)"]
+    CAPIC --> ONPREM["On-prem<br/>ACI<br/>Fabric"]
+    CAPIC --> AWS["AWS<br/>VPC"]
+    CAPIC --> AZURE["Azure<br/>VNet"]
+```
 
+```text
 Cloud APIC mapping:
   - VPC/VNet -> VRF
   - Subnet -> BD

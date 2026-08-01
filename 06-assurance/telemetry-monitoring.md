@@ -16,40 +16,49 @@
 
 ### Telemetry Architecture
 
-```text
-Traditional (SNMP polling):
-  +----------+    poll every 60s    +----------+
-  |   NMS    |<-------------------->|  Switch  |
-  | (pull)   |    GET/GETNEXT       | (agent)  |
-  +----------+                      +----------+
-  Problems: high latency, CPU load, incomplete data, 60s gaps
+```mermaid
+graph LR
+    subgraph Traditional["Traditional (SNMP polling)"]
+        NMS["NMS<br/>(pull)"] <-->|"poll every 60s<br/>GET/GETNEXT"| SW1["Switch<br/>(agent)"]
+    end
 
-Model-Driven Telemetry (streaming):
-  +----------+    continuous stream  +----------+
-  |Collector |<---------------------|  Switch  |
-  | (push)   |    gRPC/HTTP2        | (sensor) |
-  +----------+                      +----------+
-  Benefits: real-time, granular, low overhead, structured data
+    subgraph MDT["Model-Driven Telemetry (streaming)"]
+        COL["Collector<br/>(push)"] -->|"continuous stream<br/>gRPC/HTTP2"| SW2["Switch<br/>(sensor)"]
+    end
+```
+
+```text
+Traditional problems: high latency, CPU load, incomplete data, 60s gaps
+MDT benefits: real-time, granular, low overhead, structured data
 ```
 
 ### gRPC Dial-In vs Dial-Out
 
+```mermaid
+sequenceDiagram
+    participant C as Collector (client)
+    participant S as Switch (server)
+    C->>S: gRPC request (port 50001)
+    S-->>C: gRPC stream (telemetry data)
+```
+
 ```text
-Dial-In (client initiates):
-  +----------+                    +----------+
-  | Collector|--- gRPC request -->|  Switch  |
-  | (client) |<-- gRPC stream --- | (server) |
-  +----------+                    +----------+
+Dial-In:
   - Collector connects to switch (port 50001)
   - Collector subscribes to sensor paths
   - Switch streams data back
   - Use case: on-demand queries, small scale
+```
 
-Dial-Out (switch initiates):
-  +----------+                    +----------+
-  | Collector|<-- gRPC stream --- |  Switch  |
-  | (server) |                    | (client) |
-  +----------+                    +----------+
+```mermaid
+sequenceDiagram
+    participant S as Switch (client)
+    participant C as Collector (server)
+    S->>C: gRPC stream (telemetry data)
+```
+
+```text
+Dial-Out:
   - Switch connects to collector
   - Subscription configured on switch
   - Switch pushes data at defined interval
@@ -205,31 +214,23 @@ Why telemetry wins:
 
 ### NDFC Architecture
 
+```mermaid
+graph TD
+    subgraph ND["Nexus Dashboard"]
+        NDFC["NDFC (Fabric Controller)<br/>- Fabric discovery & management<br/>- Configuration templates<br/>- Compliance & drift detection<br/>- Firmware management<br/>- REST API"]
+        ORCH["Orchestrator (Multi-site ACI)"]
+        INS["Insights (Analytics)"]
+    end
+
+    ND --> S1["S1"]
+    ND --> S2["S2"]
+    ND --> L1["L1"]
+    ND --> L2["L2"]
+    ND --> L3["L3"]
+```
+
 ```text
-+------------------------------------------+
-|         Nexus Dashboard                   |
-|  +------------------------------------+  |
-|  | NDFC (Fabric Controller)           |  |
-|  | - Fabric discovery & management    |  |
-|  | - Configuration templates          |  |
-|  | - Compliance & drift detection     |  |
-|  | - Firmware management              |  |
-|  | - REST API                         |  |
-|  +------------------------------------+  |
-|  +------------------------------------+  |
-|  | Orchestrator (Multi-site ACI)      |  |
-|  +------------------------------------+  |
-|  +------------------------------------+  |
-|  | Insights (Analytics)               |  |
-|  +------------------------------------+  |
-+------------------------------------------+
-         |
-    +----+----+----+----+
-    |    |    |    |    |
-  +--+ +--+ +--+ +--+ +--+
-  |S1| |S2| |L1| |L2| |L3|
-  +--+ +--+ +--+ +--+ +--+
-  (Managed NX-OS switches)
+(Managed NX-OS switches)
 ```
 
 ### Fabric Discovery and Topology
@@ -706,19 +707,10 @@ Configure streaming telemetry on NX-OS leaf switches to stream VXLAN and BGP dat
 
 ### Topology
 
-```text
-+----------+     +----------+
-| Leaf 101 |     | Leaf 102 |
-+----+-----+     +-----+----+
-     |                  |
-     +--------+---------+
-              |
-        +-----+-----+
-        | Collector |
-        | 192.168.  |
-        | 1.200     |
-        | (gRPC)    |
-        +-----------+
+```mermaid
+graph TD
+    L101["Leaf 101"] --> COL["Collector<br/>192.168.1.200<br/>(gRPC)"]
+    L102["Leaf 102"] --> COL
 ```
 
 ### Configuration (Both Leafs)

@@ -833,22 +833,23 @@ show interface vlan 10 | include vrf
 
 ### Topology
 
+```mermaid
+graph TD
+    subgraph "Spine Layer"
+        S1["Spine-1<br/>10.255.100.1"]
+        S2["Spine-2<br/>10.255.100.2"]
+    end
+    subgraph "Leaf Layer"
+        L1["Leaf-1<br/>10.255.1.1"]
+        L2["Leaf-2<br/>10.255.2.1"]
+    end
+    S1 ---|"Eth1/1"| L1
+    S1 ---|"Eth1/2"| L2
+    S2 ---|"Eth1/1"| L1
+    S2 ---|"Eth1/2"| L2
 ```
-              +-------------------+     +-------------------+
-              |    Spine-1        |     |    Spine-2        |
-              |  10.255.100.1     |     |  10.255.100.2     |
-              +--+-----+-----+---+     +---+-----+-----+---+
-                 |     |     |             |     |     |
-            Eth1/1  Eth1/2  Eth1/3    Eth1/1  Eth1/2  Eth1/3
-                 |     |     |             |     |     |
-              +--+--+--+--+--+--+       +--+--+--+--+--+--+
-              | Leaf-1      |           | Leaf-2      |
-              | 10.255.1.1  |           | 10.255.2.1  |
-              +-------------+           +-------------+
-
 Underlay: OSPF Area 0, /31 point-to-point links
 Loopback0: VTEP source (10.255.x.1/32)
-```
 
 ### Spine-1 Configuration
 
@@ -935,23 +936,23 @@ Spine-1# show ip route ospf
 
 Same physical topology as Lab 1, but using BGP unnumbered for underlay.
 
+```mermaid
+graph TD
+    subgraph "Spine Layer (AS 65001, Route Reflectors)"
+        S1["Spine-1<br/>AS 65001<br/>RR (reflector)"]
+        S2["Spine-2<br/>AS 65001<br/>RR (reflector)"]
+    end
+    subgraph "Leaf Layer"
+        L1["Leaf-1<br/>AS 65002"]
+        L2["Leaf-2<br/>AS 65003"]
+    end
+    S1 ---|"eBGP"| L1
+    S1 ---|"eBGP"| L2
+    S2 ---|"eBGP"| L1
+    S2 ---|"eBGP"| L2
 ```
-              +-------------------+     +-------------------+
-              |    Spine-1        |     |    Spine-2        |
-              |  AS 65001         |     |  AS 65001         |
-              |  RR (reflector)   |     |  RR (reflector)   |
-              +--+-----+-----+---+     +---+-----+-----+---+
-                 |     |     |             |     |     |
-            eBGP  |     |     |        eBGP |     |     |
-                 |     |     |             |     |     |
-              +--+--+--+--+--+--+       +--+--+--+--+--+--+
-              | Leaf-1      |           | Leaf-2      |
-              | AS 65002    |           | AS 65003    |
-              +-------------+           +-------------+
-
 Underlay: eBGP unnumbered (link-local peering)
 Overlay: iBGP EVPN (loopback peering, RR on spines)
-```
 
 ### Spine-1 Configuration
 

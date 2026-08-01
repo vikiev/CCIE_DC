@@ -37,12 +37,15 @@ vlan 30
 frame header between the source MAC and EtherType fields.
 
 802.1Q tag format:
-```
-+--------+--------+--------+--------+
-| TPID   |  PCP   | DEI   |  VID   |
-| 0x8100 | 3-bit  | 1-bit | 12-bit |
-+--------+--------+--------+--------+
-  16 bits  3 bits  1 bit   12 bits
+```mermaid
+graph LR
+    subgraph "802.1Q Tag (4 bytes)"
+        A["TPID<br/>0x8100<br/>16 bits"]
+        B["PCP<br/>3-bit"]
+        C["DEI<br/>1-bit"]
+        D["VID<br/>12-bit"]
+    end
+    A --- B --- C --- D
 ```
 
 - TPID (Tag Protocol Identifier): 0x8100 identifies 802.1Q frame
@@ -135,32 +138,35 @@ it for the exam.
 BPDUs (Bridge Protocol Data Units) are the control frames STP uses to communicate.
 
 Configuration BPDU fields:
-```
-+---------------------------+
-| Protocol ID: 0x0000       |  2 bytes
-| Protocol Version: 0       |  1 byte
-| BPDU Type: 0x00 (config)  |  1 byte
-| Flags                     |  1 byte
-| Root Bridge ID            |  8 bytes
-| Root Path Cost            |  4 bytes
-| Bridge ID (sender)        |  8 bytes
-| Port ID (sender)          |  2 bytes
-| Message Age               |  2 bytes
-| Max Age                   |  2 bytes
-| Hello Time                |  2 bytes
-| Forward Delay             |  2 bytes
-+---------------------------+
+```mermaid
+graph TD
+    subgraph "Configuration BPDU"
+        F1["Protocol ID: 0x0000 (2 bytes)"]
+        F2["Protocol Version: 0 (1 byte)"]
+        F3["BPDU Type: 0x00 config (1 byte)"]
+        F4["Flags (1 byte)"]
+        F5["Root Bridge ID (8 bytes)"]
+        F6["Root Path Cost (4 bytes)"]
+        F7["Bridge ID sender (8 bytes)"]
+        F8["Port ID sender (2 bytes)"]
+        F9["Message Age (2 bytes)"]
+        F10["Max Age (2 bytes)"]
+        F11["Hello Time (2 bytes)"]
+        F12["Forward Delay (2 bytes)"]
+    end
+    F1 --- F2 --- F3 --- F4 --- F5 --- F6 --- F7 --- F8 --- F9 --- F10 --- F11 --- F12
 ```
 
 Bridge ID (8 bytes):
+```mermaid
+graph LR
+    subgraph "Bridge ID (8 bytes)"
+        A["Bridge Priority<br/>2 bytes<br/>4-bit priority + 12-bit extended system ID"]
+        B["MAC Address<br/>6 bytes"]
+    end
+    A --- B
 ```
-+-------------------+-------------------+
-| Bridge Priority   | MAC Address       |
-| 2 bytes           | 6 bytes           |
-+-------------------+-------------------+
-  Priority: 4-bit priority + 12-bit extended system ID (VLAN ID)
-  Default priority: 32768 (0x8000)
-```
+Default priority: 32768 (0x8000)
 
 > **CCIE Exam Tip:** The Bridge ID is the tiebreaker for root election. Lower is better.
 > Priority is compared first (in increments of 4096), then MAC address. You manipulate
@@ -312,43 +318,34 @@ logical switch to downstream devices for port-channel purposes. This eliminates 
 blocked ports and provides active-active forwarding.
 
 Without vPC:
-```
-                    +---------+
-                    | Spine-1 |
-                    +----+----+
-                         |
-              +----------+----------+
-              |                     |
-         +----+----+          +-----+---+
-         | Leaf-1  |          | Leaf-2  |
-         +----+----+          +-----+---+
-              |                     |
-              |    STP blocks       |
-              |    one of these     |
-              |                     |
-         +----+---------------------+----+
-         |         Server/switch         |
-         +-------------------------------+
+```mermaid
+graph TD
+    S1[Spine-1]
+    subgraph Leaf Layer
+        L1[Leaf-1]
+        L2[Leaf-2]
+    end
+    SRV["Server/switch"]
+    S1 --- L1
+    S1 --- L2
+    L1 --- SRV
+    L2 -.-|"STP blocks one of these"| SRV
 ```
 
 With vPC:
-```
-                    +---------+
-                    | Spine-1 |
-                    +----+----+
-                         |
-              +----------+----------+
-              |                     |
-         +----+----+          +-----+---+
-         | Leaf-1  +--peer---+  Leaf-2  |
-         +----+----+  link   +-----+---+
-              |                     |
-              |    BOTH active      |
-              |    (port-channel)   |
-              |                     |
-         +----+---------------------+----+
-         |         Server/switch         |
-         +-------------------------------+
+```mermaid
+graph TD
+    S1[Spine-1]
+    subgraph "vPC Pair"
+        L1[Leaf-1]
+        L2[Leaf-2]
+    end
+    SRV["Server/switch"]
+    S1 --- L1
+    S1 --- L2
+    L1 ---|"peer-link"| L2
+    L1 ---|"port-channel"| SRV
+    L2 ---|"port-channel"| SRV
 ```
 
 ### vPC Architecture Components
@@ -915,19 +912,25 @@ show interface port-channel 10
 A FEX (Fabric Extender, e.g., N2248TP-E) is a remote line card for a parent Nexus
 switch. It has NO local control plane - all forwarding decisions are made by the parent.
 
-```
-+-------------------+
-|   Parent Nexus    |
-|   (N9K, N5K)     |
-+--------+----------+
-         |  (FEX uplinks: 10GE/40GE)
-         |
-+--------+----------+
-|      FEX          |
-|   (N2248, N2400)  |
-+--+--+--+--+--+---+
-   |  |  |  |  |
-   S  S  S  S  S   (Server-facing ports)
+```mermaid
+graph TD
+    subgraph "Parent Nexus (N9K, N5K)"
+        P["Parent Switch"]
+    end
+    subgraph "FEX (N2248, N2400)"
+        F["FEX"]
+    end
+    S1["Server 1"]
+    S2["Server 2"]
+    S3["Server 3"]
+    S4["Server 4"]
+    S5["Server 5"]
+    P ---|"FEX uplinks: 10GE/40GE"| F
+    F --- S1
+    F --- S2
+    F --- S3
+    F --- S4
+    F --- S5
 ```
 
 Key concepts:
@@ -1052,37 +1055,22 @@ Links). It replaces STP with IS-IS-based L2 routing, enabling:
 
 ### Topology
 
-```
-                    +-------------------+
-                    |    Spine-1        |
-                    |  (not in vPC)     |
-                    +---+-----------+---+
-                        |           |
-                   Eth1/49     Eth1/49
-                        |           |
-                   +----+----+ +----+----+
-                   | Leaf-1  | | Leaf-2  |
-                   | (Pri)   | | (Sec)   |
-                   +----+----+ +----+----+
-                        |           |
-                   Eth1/49     Eth1/49
-                        |           |
-                        +-----+-----+
-                              |
-                         Peer-Link
-                         (Po100)
-                              |
-                   +----+----+----+----+
-                   | Eth1/1      Eth1/1|
-                   |    (Po10, vPC 10) |
-                   +---------+---------+
-                             |
-                        +----+----+
-                        |  Server |
-                        | (LACP)  |
-                        +---------+
-
-Keepalive: Leaf-1 mgmt0 (192.168.1.1) <---> Leaf-2 mgmt0 (192.168.1.2)
+```mermaid
+graph TD
+    subgraph "Spine Layer"
+        S1["Spine-1<br/>(not in vPC)"]
+    end
+    subgraph "vPC Domain 100"
+        L1["Leaf-1<br/>(Primary)"]
+        L2["Leaf-2<br/>(Secondary)"]
+    end
+    SRV["Server<br/>(LACP)"]
+    S1 ---|"Eth1/49"| L1
+    S1 ---|"Eth1/49"| L2
+    L1 ---|"Peer-Link Po100"| L2
+    L1 ---|"Eth1/1 Po10 vPC 10"| SRV
+    L2 ---|"Eth1/1 Po10 vPC 10"| SRV
+    L1 -.-|"Keepalive mgmt0<br/>192.168.1.1"| L2
 ```
 
 ### Leaf-1 Configuration

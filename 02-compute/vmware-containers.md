@@ -15,20 +15,24 @@
 
 ### vCenter and ESXi Architecture
 
-```text
-+------------------------------------------+
-|            vCenter Server                 |
-|  (Management, SSO, Inventory, Tasks)     |
-+----+----------+----------+----------+----+
-     |          |          |          |
-+----+---+ +---+----+ +---+----+ +---+----+
-| ESXi 1 | | ESXi 2 | | ESXi 3 | | ESXi 4 |
-| (Host) | | (Host) | | (Host) | | (Host) |
-+--------+ +--------+ +--------+ +--------+
-     |          |          |          |
-+----+----------+----------+----------+----+
-|          Shared Storage (SAN/NAS)        |
-+------------------------------------------+
+```mermaid
+graph TD
+    VC["vCenter Server (Management, SSO, Inventory, Tasks)"]
+    subgraph "ESXi Hosts"
+        E1["ESXi 1 (Host)"]
+        E2["ESXi 2 (Host)"]
+        E3["ESXi 3 (Host)"]
+        E4["ESXi 4 (Host)"]
+    end
+    SS["Shared Storage (SAN/NAS)"]
+    VC --- E1
+    VC --- E2
+    VC --- E3
+    VC --- E4
+    E1 --- SS
+    E2 --- SS
+    E3 --- SS
+    E4 --- SS
 ```
 
 #### vCenter Server
@@ -109,23 +113,22 @@ vMotion types:
 
 ### VDS Architecture
 
-```text
-+------------------------------------------+
-|            vCenter Server                 |
-|  (VDS configuration managed centrally)   |
-+----+----------+----------+----------+----+
-     |          |          |          |
-+----+---+ +---+----+ +---+----+ +---+----+
-| ESXi 1 | | ESXi 2 | | ESXi 3 | | ESXi 4 |
-| +----+ | | +----+ | | +----+ | | +----+ |
-| |VDS | | | |VDS | | | |VDS | | | |VDS | |
-| |proxy| | | |proxy| | | |proxy| | | |proxy| |
-| +----+ | | +----+ | | +----+ | | +----+ |
-+--------+ +--------+ +--------+ +--------+
-
-VDS = single logical switch across all hosts
-Each host runs a "proxy" that enforces VDS config
+```mermaid
+graph TD
+    VC["vCenter Server (VDS configuration managed centrally)"]
+    subgraph "ESXi Hosts"
+        E1["ESXi 1 - VDS proxy"]
+        E2["ESXi 2 - VDS proxy"]
+        E3["ESXi 3 - VDS proxy"]
+        E4["ESXi 4 - VDS proxy"]
+    end
+    VC --- E1
+    VC --- E2
+    VC --- E3
+    VC --- E4
 ```
+
+VDS = single logical switch across all hosts. Each host runs a "proxy" that enforces VDS config.
 
 ### VDS Configuration
 
@@ -287,19 +290,25 @@ Configuration:
 
 ### NSX-T Overlay Architecture
 
-```text
-+------------------+
-|  NSX Manager     |  (Control plane, policy)
-+--------+---------+
-         |
-+--------+---------+---------+---------+
-| ESXi 1 | ESXi 2 | ESXi 3 | ESXi 4 |
-| N-VDS  | N-VDS  | N-VDS  | N-VDS  |
-| TEP IP | TEP IP | TEP IP | TEP IP |
-+--------+---------+---------+---------+
-         |
-    Physical Underlay (VXLAN transport)
-    (Any L3 network - ACI, traditional, etc.)
+```mermaid
+graph TD
+    NSXM["NSX Manager (Control plane, policy)"]
+    subgraph "ESXi Hosts"
+        E1["ESXi 1 - N-VDS - TEP IP"]
+        E2["ESXi 2 - N-VDS - TEP IP"]
+        E3["ESXi 3 - N-VDS - TEP IP"]
+        E4["ESXi 4 - N-VDS - TEP IP"]
+    end
+    UL["Physical Underlay (VXLAN transport) - Any L3 network"]
+    NSXM --- E1
+    NSXM --- E2
+    NSXM --- E3
+    NSXM --- E4
+    E1 --- UL
+    E2 --- UL
+    E3 --- UL
+    E4 --- UL
+```
 
 NSX-T components:
   - Segment: L2 broadcast domain (VXLAN VNI)
@@ -307,21 +316,28 @@ NSX-T components:
   - Tier-0 gateway: north-south routing (BGP/OSPF to physical)
   - Distributed Firewall: L4-L7 per-VM
   - Load Balancer: distributed or service-based
-```
 
 ### ACI Overlay Architecture (Comparison)
 
-```text
-+------------------+
-|  APIC Cluster    |  (Policy, not in data path)
-+--------+---------+
-         |
-+--------+---------+---------+---------+
-| Leaf 1 | Leaf 2 | Leaf 3 | Leaf 4 |
-| VTEP   | VTEP   | VTEP   | VTEP   |
-+--------+---------+---------+---------+
-         |
-    Spine (IS-IS underlay, COOP database)
+```mermaid
+graph TD
+    APIC["APIC Cluster (Policy, not in data path)"]
+    subgraph "ACI Leaves"
+        L1["Leaf 1 - VTEP"]
+        L2["Leaf 2 - VTEP"]
+        L3["Leaf 3 - VTEP"]
+        L4["Leaf 4 - VTEP"]
+    end
+    SP["Spine (IS-IS underlay, COOP database)"]
+    APIC --- L1
+    APIC --- L2
+    APIC --- L3
+    APIC --- L4
+    L1 --- SP
+    L2 --- SP
+    L3 --- SP
+    L4 --- SP
+```
 
 ACI components:
   - BD: L2/L3 domain (VXLAN VNID)
@@ -329,7 +345,6 @@ ACI components:
   - Contract: policy between EPGs
   - COOP: endpoint database on spines
   - vzAny: default gateway (anycast)
-```
 
 ### Key Differences
 
@@ -516,29 +531,28 @@ CNI binary location: /opt/cni/bin/
 
 ### Overlay Networks for Containers
 
-```text
-Container overlay (VXLAN-based):
-  Host A                    Host B
-  +--------+               +--------+
-  | Pod 1  |               | Pod 2  |
-  | 10.1.1.2|              | 10.1.1.3|
-  +---+----+               +----+---+
-      | veth                    | veth
-  +---+----+               +----+---+
-  | cni0   |               | cni0   |
-  | bridge |               | bridge |
-  +---+----+               +----+---+
-      | VXLAN encap             | VXLAN encap
-  +---+----+               +----+---+
-  | eth0   |               | eth0   |
-  | (host) |               | (host) |
-  +---+----+               +----+---+
-      |                         |
-      +---- Physical Network ---+
-           (underlay)
+```mermaid
+graph TD
+    subgraph "Host A"
+        P1["Pod 1 - 10.1.1.2"]
+        CNI0A["cni0 bridge"]
+        ETH0A["eth0 (host)"]
+    end
+    subgraph "Host B"
+        P2["Pod 2 - 10.1.1.3"]
+        CNI0B["cni0 bridge"]
+        ETH0B["eth0 (host)"]
+    end
+    PN["Physical Network (underlay)"]
+    P1 ---|"veth"| CNI0A
+    CNI0A ---|"VXLAN encap"| ETH0A
+    P2 ---|"veth"| CNI0B
+    CNI0B ---|"VXLAN encap"| ETH0B
+    ETH0A --- PN
+    ETH0B --- PN
+```
 
 VXLAN VNI per container network (similar to ACI BD)
-```
 
 ---
 
@@ -546,38 +560,27 @@ VXLAN VNI per container network (similar to ACI BD)
 
 ### Pod Network
 
-```text
 Kubernetes networking requirements:
   1. Every pod gets a unique IP (flat network, no NAT between pods)
   2. Pods can communicate with all other pods without NAT
   3. Nodes can communicate with all pods without NAT
   4. Pod's own IP is what it sees (no translation)
 
-Pod networking:
-  +---------------------------+
-  | Pod                       |
-  | +-------+  +-------+     |
-  | |Container| |Container|   |  (shared network namespace)
-  | |  A     |  |  B     |   |
-  | +---+---+  +---+---+     |
-  |     |          |         |
-  |     +----+-----+         |
-  |          |               |
-  |     +----+----+          |
-  |     |  eth0   |          |  (pod IP: 10.244.1.5)
-  |     +----+----+          |
-  +----------|---------------+
-             | veth pair
-  +----------|---------------+
-  |     +----+----+          |
-  |     |  cni0   |          |  (host bridge)
-  |     +----+----+          |
-  |          |               |
-  |     +----+----+          |
-  |     |  eth0   |          |  (host IP: 192.168.1.10)
-  |     +---------+          |
-  |     Host / Node          |
-  +--------------------------+
+```mermaid
+graph TD
+    subgraph "Pod (shared network namespace)"
+        CA["Container A"]
+        CB["Container B"]
+        PETH0["eth0 (pod IP: 10.244.1.5)"]
+    end
+    subgraph "Host / Node"
+        CNI0["cni0 (host bridge)"]
+        HETH0["eth0 (host IP: 192.168.1.10)"]
+    end
+    CA --- PETH0
+    CB --- PETH0
+    PETH0 ---|"veth pair"| CNI0
+    CNI0 --- HETH0
 ```
 
 ### Services
@@ -617,7 +620,6 @@ Example:
 
 ### ACI CNI Plugin
 
-```text
 ACI CNI (opflex-agent):
   - Integrates K8s pods into ACI policy model
   - Pods become ACI endpoints (learned by leaf)
@@ -625,22 +627,24 @@ ACI CNI (opflex-agent):
   - K8s NetworkPolicy maps to ACI Contracts
   - Pod IPs are in ACI BD subnet
 
-Architecture:
-  +------------------+
-  |  APIC            |
-  +--------+---------+
-           |
-  +--------+---------+---------+
-  | Leaf 1 | Leaf 2 | Leaf 3 |
-  +--------+---------+---------+
-           |
-  +--------+---------+---------+
-  | K8s Node 1 | K8s Node 2 |
-  | +--------+ | +--------+ |
-  | |  Pods  | | |  Pods  | |
-  | +--------+ | +--------+ |
-  | opflex-agent| opflex-agent|
-  +-------------+-------------+
+```mermaid
+graph TD
+    APIC["APIC"]
+    subgraph "ACI Leaves"
+        L1["Leaf 1"]
+        L2["Leaf 2"]
+        L3["Leaf 3"]
+    end
+    subgraph "K8s Nodes"
+        N1["K8s Node 1 - Pods - opflex-agent"]
+        N2["K8s Node 2 - Pods - opflex-agent"]
+    end
+    APIC --- L1
+    APIC --- L2
+    APIC --- L3
+    L1 --- N1
+    L2 --- N2
+```
 
 Flow:
   1. Pod created -> CNI plugin called
@@ -648,7 +652,6 @@ Flow:
   3. APIC assigns EPG (based on namespace/label)
   4. ACI leaf learns pod IP/MAC
   5. Contracts enforce policy between pods
-```
 
 ### Cisco Container Platform (CCP)
 
@@ -830,25 +833,23 @@ Verify ACI VMM domain integration with VMware VDS and validate EPG-to-port-group
 
 ### Topology
 
-```text
-+----------+     +----------+
-| ACI      |     | ACI      |
-| Leaf 101 |     | Leaf 102 |
-+----+-----+     +-----+----+
-     |                  |
-     +--------+---------+
-              |
-        +-----+-----+
-        | vCenter   |
-        | (VCSA)    |
-        +-----+-----+
-              |
-     +--------+---------+
-     |        |         |
-+----+--+ +--+----+ +--+----+
-| ESXi 1| | ESXi 2| | ESXi 3|
-| (VDS) | | (VDS) | | (VDS) |
-+-------+ +-------+ +-------+
+```mermaid
+graph TD
+    subgraph "ACI Fabric"
+        L101["ACI Leaf 101"]
+        L102["ACI Leaf 102"]
+    end
+    VC["vCenter (VCSA)"]
+    subgraph "ESXi Hosts"
+        E1["ESXi 1 (VDS)"]
+        E2["ESXi 2 (VDS)"]
+        E3["ESXi 3 (VDS)"]
+    end
+    L101 --- VC
+    L102 --- VC
+    VC --- E1
+    VC --- E2
+    VC --- E3
 ```
 
 ### Step 1: Verify VMM Domain on APIC
@@ -937,21 +938,20 @@ Deploy a Kubernetes cluster with ACI CNI and verify pod-to-EPG mapping and contr
 
 ### Topology
 
-```text
-+----------+     +----------+
-| ACI      |     | ACI      |
-| Leaf 101 |     | Leaf 102 |
-+----+-----+     +-----+----+
-     |                  |
-     +--------+---------+
-              |
-     +--------+---------+
-     |        |         |
-+----+--+ +--+----+ +--+----+
-| K8s   | | K8s   | | K8s   |
-| Node 1| | Node 2| | Node 3|
-| (UCS) | | (UCS) | | (UCS) |
-+-------+ +-------+ +-------+
+```mermaid
+graph TD
+    subgraph "ACI Fabric"
+        L101["ACI Leaf 101"]
+        L102["ACI Leaf 102"]
+    end
+    subgraph "K8s Nodes"
+        N1["K8s Node 1 (UCS)"]
+        N2["K8s Node 2 (UCS)"]
+        N3["K8s Node 3 (UCS)"]
+    end
+    L101 --- N1
+    L101 --- N2
+    L102 --- N3
 ```
 
 ### Step 1: Verify ACI CNI Deployment

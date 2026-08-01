@@ -17,29 +17,34 @@ Cisco Unified Computing System (UCS) is a data center server platform that integ
 
 ### UCS Components
 
-```text
-+------------------------------------------------------------------+
-|                        UCS Domain                                  |
-|                                                                    |
-|  +------------------+          +------------------+                |
-|  |  Fabric          |          |  Fabric          |                |
-|  |  Interconnect A  |          |  Interconnect B  |                |
-|  |  (FI-A)          |          |  (FI-B)          |                |
-|  +--------+---------+          +---------+--------+                |
-|           |                              |                         |
-|     +-----+-----+                  +-----+-----+                  |
-|     |           |                  |           |                   |
-|  +--+--+    +--+--+            +--+--+    +--+--+                 |
-|  |IOM 1|    |IOM 2|            |IOM 1|    |IOM 2|                 |
-|  +--+--+    +--+--+            +--+--+    +--+--+                 |
-|     |           |                  |           |                   |
-|  +--+--+    +--+--+            +--+--+    +--+--+                 |
-|  |Blade|    |Blade|            |Blade|    |Blade|                 |
-|  | B1  |    | B2  |            | B1  |    | B2  |                 |
-|  +-----+    +-----+            +-----+    +-----+                 |
-|                                                                    |
-|  Chassis 1 (5108/M6)         Chassis 2 (5108/M6)                 |
-+------------------------------------------------------------------+
+```mermaid
+graph TD
+    subgraph "UCS Domain"
+        subgraph "Fabric Interconnects"
+            FIA["Fabric Interconnect A (FI-A)"]
+            FIB["Fabric Interconnect B (FI-B)"]
+        end
+        subgraph "Chassis 1 (5108/M6)"
+            IOM1_C1["IOM 1"]
+            IOM2_C1["IOM 2"]
+            B1_C1["Blade B1"]
+            B2_C1["Blade B2"]
+        end
+        subgraph "Chassis 2 (5108/M6)"
+            IOM1_C2["IOM 1"]
+            IOM2_C2["IOM 2"]
+            B1_C2["Blade B1"]
+            B2_C2["Blade B2"]
+        end
+    end
+    FIA --- IOM1_C1
+    FIA --- IOM2_C1
+    FIB --- IOM1_C2
+    FIB --- IOM2_C2
+    IOM1_C1 --- B1_C1
+    IOM2_C1 --- B2_C1
+    IOM1_C2 --- B1_C2
+    IOM2_C2 --- B2_C2
 ```
 
 ### Fabric Interconnects (FI)
@@ -554,24 +559,26 @@ VSAN considerations:
 
 ### Architecture
 
-```text
-+-------------------+     +-------------------+
-|   ACI Leaf        |     |   ACI Leaf        |
-|  (VXLAN VTEP)     |     |  (VXLAN VTEP)     |
-+--------+----------+     +----------+--------+
-         |                            |
-    +----+----+                  +----+----+
-    |  FI-A   |                  |  FI-B   |
-    | (UCS)   |                  | (UCS)   |
-    +----+----+                  +----+----+
-         |                            |
-    +----+----------------------------+----+
-    |           UCS Chassis / Rack         |
-    |  +------+  +------+  +------+       |
-    |  |ESXi  |  |ESXi  |  |ESXi  |       |
-    |  |Host 1|  |Host 2|  |Host 3|       |
-    |  +------+  +------+  +------+       |
-    +--------------------------------------+
+```mermaid
+graph TD
+    subgraph "ACI Fabric"
+        L1["ACI Leaf (VXLAN VTEP)"]
+        L2["ACI Leaf (VXLAN VTEP)"]
+    end
+    subgraph "UCS Fabric Interconnects"
+        FIA["FI-A (UCS)"]
+        FIB["FI-B (UCS)"]
+    end
+    subgraph "UCS Chassis / Rack"
+        H1["ESXi Host 1"]
+        H2["ESXi Host 2"]
+        H3["ESXi Host 3"]
+    end
+    L1 --- FIA
+    L2 --- FIB
+    FIA --- H1
+    FIA --- H2
+    FIB --- H3
 ```
 
 ### VMM Domain Integration
@@ -747,17 +754,11 @@ FI-A# show system redundancy
 
 ### Intersight Architecture
 
-```text
-+------------------+
-|  Cisco Intersight|  (Cloud SaaS or Virtual Appliance)
-|  (Management)    |
-+--------+---------+
-         | HTTPS (outbound from FI)
-         |
-+--------+---------+
-|  UCS FI (IMM)    |
-|  Managed Mode    |
-+--------+---------+
+```mermaid
+graph TD
+    IS["Cisco Intersight (Cloud SaaS or Virtual Appliance)"]
+    FI["UCS FI (IMM) - Managed Mode"]
+    IS ---|"HTTPS (outbound from FI)"| FI
 ```
 
 ### Claims Process
@@ -844,25 +845,23 @@ Create a complete Service Profile Template with SAN boot and associate it to a b
 
 ### Topology
 
-```text
-+----------+     +----------+
-| MDS 9396 |     | MDS 9396 |
-| (SAN-A)  |     | (SAN-B)  |
-+----+-----+     +-----+----+
-     |                  |
-+----+-----+     +-----+----+
-|  FI-A    |     |  FI-B    |
-| UCS 6454 |     | UCS 6454 |
-+----+-----+     +-----+----+
-     |                  |
-     +--------+---------+
-              |
-        +-----+-----+
-        | Chassis 1 |
-        | +-------+ |
-        | |Blade 1| |
-        | +-------+ |
-        +-----------+
+```mermaid
+graph TD
+    subgraph "SAN Fabric"
+        MDS_A["MDS 9396 (SAN-A)"]
+        MDS_B["MDS 9396 (SAN-B)"]
+    end
+    subgraph "UCS Fabric Interconnects"
+        FIA["FI-A UCS 6454"]
+        FIB["FI-B UCS 6454"]
+    end
+    subgraph "Chassis 1"
+        B1["Blade 1"]
+    end
+    MDS_A --- FIA
+    MDS_B --- FIB
+    FIA --- B1
+    FIB --- B1
 ```
 
 ### Configuration

@@ -58,12 +58,10 @@ Key rules:
 
 ### FC Frame Structure
 
-```text
-FC Frame (max 2148 bytes):
-  +--------+--------+--------+--------+--------+--------+
-  | SOF    | Header | Payload| CRC    | EOF    |
-  | (4B)   | (24B)  | (0-2112)| (4B) | (4B)   |
-  +--------+--------+--------+--------+--------+
+```mermaid
+graph LR
+    SOF["SOF (4B)"] --> HDR["Header (24B)"] --> PAY["Payload (0-2112B)"] --> CRC["CRC (4B)"] --> EOF["EOF (4B)"]
+```
 
 Header fields:
   - R_CTL: Routing control (data, link control, extended)
@@ -78,7 +76,6 @@ Header fields:
 
 Max payload: 2112 bytes
 Max frame: 2148 bytes (with SOF/EOF/CRC)
-```
 
 ---
 
@@ -86,59 +83,60 @@ Max frame: 2148 bytes (with SOF/EOF/CRC)
 
 ### Point-to-Point
 
-```text
-+--------+          +--------+
-| Server |----------| Storage|
-| (N-port)|         | (N-port)|
-+--------+          +--------+
+```mermaid
+graph LR
+    S["Server (N-port)"] --- ST["Storage (N-port)"]
+```
 
 - Direct connection, no switch
 - Simple, no fabric services
 - Limited to 2 devices
 - Legacy (rarely used in DC)
-```
 
 ### Arbitrated Loop (FC-AL) — Legacy
 
-```text
-+--------+     +--------+     +--------+
-| Device |-----| Device |-----| Device |
-| (NL)   |     | (NL)   |     | (NL)   |
-+--------+     +--------+     +--------+
-     |                              |
-     +------------------------------+
-              (Loop)
+```mermaid
+graph LR
+    D1["Device (NL)"] --- D2["Device (NL)"]
+    D2 --- D3["Device (NL)"]
+    D3 --- D1
+```
 
 - Shared bandwidth (token passing)
 - Up to 126 devices per loop
 - AL_PA (Arbitrated Loop Physical Address): 7-bit
 - FL-port on switch connects to loop
 - DEPRECATED: know for exam history only
-```
 
 ### Switched Fabric (Modern)
 
-```text
-+--------+     +--------+     +--------+
-| Server |     | Server |     | Server |
-| (N-port)|    | (N-port)|    | (N-port)|
-+---+----+     +---+----+     +---+----+
-    |              |              |
-+---+--------------+--------------+---+
-|           FC Switch (Fabric)        |
-|  F-port  F-port  F-port  E-port    |
-+---+--------------+--------------+---+
-    |              |              |
-+---+----+     +---+----+     +---+----+
-|Storage |     |Storage |     | Switch |
-|(N-port)|     |(N-port)|     |(E-port)|
-+--------+     +--------+     +--------+
+```mermaid
+graph TD
+    subgraph "Servers"
+        S1["Server (N-port)"]
+        S2["Server (N-port)"]
+        S3["Server (N-port)"]
+    end
+    subgraph "FC Switch (Fabric)"
+        SW["F-port / F-port / F-port / E-port"]
+    end
+    subgraph "Storage and Expansion"
+        ST1["Storage (N-port)"]
+        ST2["Storage (N-port)"]
+        SW2["Switch (E-port)"]
+    end
+    S1 --- SW
+    S2 --- SW
+    S3 --- SW
+    SW --- ST1
+    SW --- ST2
+    SW --- SW2
+```
 
 - Full bandwidth per port (no sharing)
 - Fabric services: name server, FSPF, zoning
 - Scalable: multiple switches via E-ports (ISL)
 - This is what CCIE DC focuses on
-```
 
 ---
 
@@ -179,26 +177,32 @@ Max frame: 2148 bytes (with SOF/EOF/CRC)
 
 ### MDS Architecture
 
-```text
-MDS 9718 Chassis:
-+----------------------------------------------------------+
-| Slot 1: Supervisor (active)                              |
-| Slot 2: Supervisor (standby)                             |
-| Slot 3: Line Card (48x 32G FC)                          |
-| Slot 4: Line Card (48x FCoE 10/25G)                     |
-| Slot 5: Line Card (48x 32G FC)                          |
-| Slot 6: Line Card (24x NVMe/FC)                         |
-| Slot 7: Crossbar Fabric Module                          |
-| Slot 8: Power Supply 1                                  |
-| Slot 9: Power Supply 2                                  |
-+----------------------------------------------------------+
+```mermaid
+graph TD
+    subgraph "MDS 9718 Chassis"
+        S1["Slot 1: Supervisor (active)"]
+        S2["Slot 2: Supervisor (standby)"]
+        S3["Slot 3: Line Card (48x 32G FC)"]
+        S4["Slot 4: Line Card (48x FCoE 10/25G)"]
+        S5["Slot 5: Line Card (48x 32G FC)"]
+        S6["Slot 6: Line Card (24x NVMe/FC)"]
+        S7["Slot 7: Crossbar Fabric Module"]
+        S8["Slot 8: Power Supply 1"]
+        S9["Slot 9: Power Supply 2"]
+    end
+    S1 --- S7
+    S2 --- S7
+    S3 --- S7
+    S4 --- S7
+    S5 --- S7
+    S6 --- S7
+```
 
 Key components:
   - Supervisor: runs NX-OS, manages fabric services
   - Line cards: provide ports, hardware forwarding
   - Crossbar: non-blocking interconnect between line cards
   - Fabric: internal switching (no external loops)
-```
 
 ---
 
@@ -487,18 +491,15 @@ Common configurations:
 
 ### FCoE Architecture
 
-```text
-FCoE encapsulates FC frames in Ethernet:
-  +--------+--------+--------+--------+--------+
-  | Eth Hdr| FCoE   | FC Frame| FCS   | Eth FCS|
-  | (14B)  | Hdr(4B)| (2148B)| (4B)  | (4B)   |
-  +--------+--------+--------+--------+--------+
+```mermaid
+graph LR
+    EH["Eth Hdr (14B)"] --> FH["FCoE Hdr (4B)"] --> FC["FC Frame (2148B)"] --> FCS["FCS (4B)"] --> EF["Eth FCS (4B)"]
+```
 
   - EtherType: 0x8906 (FCoE data)
   - FCoE VLAN: dedicated VLAN for FCoE traffic
   - FC frame is UNCHANGED inside FCoE (transparent)
   - Requires lossless Ethernet (DCB/PFC)
-```
 
 ### FCoE VLAN Requirements
 
@@ -518,31 +519,23 @@ Mapping:
 
 ### CNA (Converged Network Adapter)
 
-```text
 CNA = NIC + HBA in one adapter
   - Presents both Ethernet (vNIC) and FC (vHBA) to OS
   - Single cable for LAN + SAN traffic
   - Examples: Cisco VIC 1495, QLogic QLE8262, Emulex OCe14102
   - On UCS: VIC presents vNICs and vHBAs via Service Profile
 
-CNA operation:
-  +------------------+
-  | Server OS        |
-  | +------+------+  |
-  | | eth0 | fc0  |  |  (vNIC + vHBA)
-  | +--+---+--+---+  |
-  |    |      |      |
-  | +--+------+---+  |
-  | |    CNA      |  |  (hardware: VIC/QLogic/Emulex)
-  | +------+------+  |
-  +--------|---------+
-           | single 10/25G cable
-           | (carries both Ethernet + FCoE)
-           |
-  +--------|---------+
-  | Nexus/MDS FCoE   |
-  | Port (FCoE VLAN) |
-  +------------------+
+```mermaid
+graph TD
+    subgraph "Server OS"
+        ETH0["eth0 (vNIC)"]
+        FC0["fc0 (vHBA)"]
+        CNA["CNA (hardware: VIC/QLogic/Emulex)"]
+    end
+    SW["Nexus/MDS FCoE Port (FCoE VLAN)"]
+    ETH0 --- CNA
+    FC0 --- CNA
+    CNA ---|"single 10/25G cable (Ethernet + FCoE)"| SW
 ```
 
 ### FCoE on Nexus 9000
@@ -715,7 +708,6 @@ NPIV operation:
 
 ### NPV (N-Port Virtualization)
 
-```text
 NPV:
   - Switch operates as NPV proxy (not a full FC switch)
   - NPV switch does NOT run FSPF, does NOT have domain ID
@@ -724,29 +716,30 @@ NPV:
   - Core switch assigns FC-IDs to all devices (NPV is transparent)
   - Reduces domain ID consumption (limited to 239 per fabric)
 
-NPV topology:
-  +--------+     +--------+     +--------+
-  | Server |     | Server |     | Server |
-  +---+----+     +---+----+     +---+----+
-      |              |              |
-  +---+--------------+--------------+---+
-  |     NPV Switch (Nexus/MDS)          |
-  |     F-ports (down)  NP-ports (up)   |
-  +---+--------------+--------------+---+
-      |              |              |
-      +--------------+--------------+
-                     |
-  +------------------+------------------+
-  |        Core MDS (FCF)               |
-  |        F-ports (assigns FC-IDs)     |
-  +-------------------------------------+
+```mermaid
+graph TD
+    subgraph "Servers"
+        S1["Server"]
+        S2["Server"]
+        S3["Server"]
+    end
+    subgraph "NPV Switch (Nexus/MDS)"
+        NPV["F-ports (down) / NP-ports (up)"]
+    end
+    subgraph "Core MDS (FCF)"
+        CORE["F-ports (assigns FC-IDs)"]
+    end
+    S1 --- NPV
+    S2 --- NPV
+    S3 --- NPV
+    NPV --- CORE
+```
 
 NPV advantages:
   - No domain ID consumed by NPV switch
   - Simplified management (no FSPF, no zoning on NPV)
   - Zoning done on core switch only
   - Scales fabric beyond 239 domains
-```
 
 ### NPV Configuration
 
@@ -922,23 +915,23 @@ Configure VSANs, zoning, and verify end-to-end FC connectivity.
 
 ### Topology
 
-```text
-+--------+     +--------+
-| ESXi 1 |     | ESXi 2 |
-| HBA-A  |     | HBA-A  |
-| HBA-B  |     | HBA-B  |
-+---+----+     +---+----+
-    |              |
-+---+--------------+---+
-|   MDS 9396 (Core)    |
-|   VSAN 100 (Fabric A)|
-|   VSAN 200 (Fabric B)|
-+---+--------------+---+
-    |              |
-+---+----+     +---+----+
-|NetApp  |     |NetApp  |
-|Target A|     |Target B|
-+--------+     +--------+
+```mermaid
+graph TD
+    subgraph "Hosts"
+        E1["ESXi 1 - HBA-A / HBA-B"]
+        E2["ESXi 2 - HBA-A / HBA-B"]
+    end
+    subgraph "MDS 9396 (Core)"
+        MDS["VSAN 100 (Fabric A) / VSAN 200 (Fabric B)"]
+    end
+    subgraph "Storage"
+        T1["NetApp Target A"]
+        T2["NetApp Target B"]
+    end
+    E1 --- MDS
+    E2 --- MDS
+    MDS --- T1
+    MDS --- T2
 ```
 
 ### Configuration
@@ -1040,22 +1033,23 @@ Configure FCoE NPV on Nexus 9000, connect to upstream MDS, and verify FCoE login
 
 ### Topology
 
-```text
-+--------+     +--------+
-| UCS FI |     | UCS FI |
-| (FCoE) |     | (FCoE) |
-+---+----+     +---+----+
-    |              |
-+---+--------------+---+
-|  Nexus 9396 (NPV)    |
-|  FCoE VLAN 100,200   |
-+---+--------------+---+
-    |              |
-+---+----+     +---+----+
-| MDS    |     | MDS    |
-| (FCF)  |     | (FCF)  |
-| VSAN100|     | VSAN200|
-+--------+     +--------+
+```mermaid
+graph TD
+    subgraph "UCS Fabric Interconnects"
+        FIA["UCS FI (FCoE)"]
+        FIB["UCS FI (FCoE)"]
+    end
+    subgraph "Nexus 9396 (NPV)"
+        NPV["FCoE VLAN 100,200"]
+    end
+    subgraph "MDS Core"
+        MDSA["MDS (FCF) - VSAN100"]
+        MDSB["MDS (FCF) - VSAN200"]
+    end
+    FIA --- NPV
+    FIB --- NPV
+    NPV --- MDSA
+    NPV --- MDSB
 ```
 
 ### Nexus 9000 Configuration

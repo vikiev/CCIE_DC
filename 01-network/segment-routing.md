@@ -286,26 +286,14 @@ Key differences from SR-MPLS:
 
 ### SRH (Segment Routing Header)
 
-```
-+-------------------------------------------+
-| IPv6 Header                               |
-|   Next Header: 43 (Routing)               |
-|   Src: Ingress VTEP                       |
-|   Dst: First segment                      |
-+-------------------------------------------+
-| SRH (Segment Routing Header)              |
-|   Next Header: 4 (IPv4) or 41 (IPv6)     |
-|   Hdr Ext Len: (segments * 2)            |
-|   Routing Type: 4 (SRv6)                 |
-|   Segments Left: N                        |
-|   Segment List:                           |
-|     [0]: Segment N (last)                 |
-|     [1]: Segment N-1                      |
-|     ...                                   |
-|     [N]: Segment 1 (first/active)         |
-+-------------------------------------------+
-| Inner Packet (IPv4/IPv6/Ethernet)         |
-+-------------------------------------------+
+```mermaid
+graph TD
+    subgraph "SRv6 Packet"
+        H1["IPv6 Header<br/>Next Header: 43 (Routing)<br/>Src: Ingress VTEP<br/>Dst: First segment"]
+        H2["SRH (Segment Routing Header)<br/>Next Header: 4 (IPv4) or 41 (IPv6)<br/>Hdr Ext Len: segments x 2<br/>Routing Type: 4 (SRv6)<br/>Segments Left: N<br/>Segment List: [0] Segment N (last) ... [N] Segment 1 (first/active)"]
+        H3["Inner Packet (IPv4/IPv6/Ethernet)"]
+    end
+    H1 --- H2 --- H3
 ```
 
 ### uSID (Micro-SID)
@@ -387,26 +375,22 @@ SR-TE is commonly used for DCI:
 
 ### Topology
 
+```mermaid
+graph TD
+    subgraph "Spine Layer"
+        S1["Spine-1<br/>SID: 1<br/>10.255.100.1"]
+    end
+    subgraph "Leaf Layer"
+        L1["Leaf-1<br/>SID: 2<br/>10.255.1.1"]
+        L2["Leaf-2<br/>SID: 3<br/>10.255.2.1"]
+    end
+    S1 --- L1
+    S1 --- L2
 ```
-              +-----------+
-              | Spine-1   |
-              | SID: 1    |
-              | 10.255.   |
-              | 100.1     |
-              +-+------+--+
-                |      |
-           +----+--+ +-+----+
-           |Leaf-1 | |Leaf-2 |
-           |SID: 2 | |SID: 3 |
-           |10.255.| |10.255.|
-           |1.1    | |2.1    |
-           +-------+ +-------+
-
 SRGB: 16000-23999
 Leaf-1: Prefix-SID index 2 -> Label 16002
 Leaf-2: Prefix-SID index 3 -> Label 16003
 Spine-1: Prefix-SID index 1 -> Label 16001
-```
 
 ### Spine-1 Configuration
 

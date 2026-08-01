@@ -29,22 +29,16 @@ This requires PFC (Priority-based Flow Control) to create "no-drop" classes.
 
 ### Lossless Ethernet Components
 
-```
-+------------------------------------------------------------------+
-|                    LOSSLESS ETHERNET STACK                        |
-+------------------------------------------------------------------+
-|                                                                    |
-|  Application Layer:  FCoE, RoCEv2, NVMe-oF                        |
-|         |                                                          |
-|  Transport:          PFC (802.1Qbb) - per-priority pause          |
-|         |                                                          |
-|  Congestion:         ECN (802.1Qau) + WRED - early notification   |
-|         |                                                          |
-|  Classification:     CoS (802.1p) / DSCP - traffic marking        |
-|         |                                                          |
-|  Physical:           10/25/40/100GE - data center Ethernet         |
-|                                                                    |
-+------------------------------------------------------------------+
+```mermaid
+graph TD
+    subgraph "LOSSLESS ETHERNET STACK"
+        A["Application Layer: FCoE, RoCEv2, NVMe-oF"]
+        B["Transport: PFC (802.1Qbb) - per-priority pause"]
+        C["Congestion: ECN (802.1Qau) + WRED - early notification"]
+        D["Classification: CoS (802.1p) / DSCP - traffic marking"]
+        E["Physical: 10/25/40/100GE - data center Ethernet"]
+    end
+    A --- B --- C --- D --- E
 ```
 
 ### PFC (Priority-based Flow Control, 802.1Qbb)
@@ -57,17 +51,18 @@ Instead of pausing ALL traffic on a link, PFC pauses only the specified priority
 - PFC frame: sent when queue threshold is reached
 - Receiver sends PFC pause to stop sender from overflowing the buffer
 
-```
-Switch A                    Switch B
-+--------+                  +--------+
-| Queue  | --- PFC pause -> | Queue  |  (CoS 3 queue full)
-| CoS 3  |                  | CoS 3  |
-| FULL   |                  |        |
-+--------+                  +--------+
-| Queue  | --- traffic ---> | Queue  |  (CoS 0 still flowing)
-| CoS 0  |                  | CoS 0  |
-| OK     |                  |        |
-+--------+                  +--------+
+```mermaid
+graph LR
+    subgraph "Switch A"
+        A1["Queue CoS 3<br/>FULL"]
+        A2["Queue CoS 0<br/>OK"]
+    end
+    subgraph "Switch B"
+        B1["Queue CoS 3"]
+        B2["Queue CoS 0"]
+    end
+    B1 -->|"PFC pause"| A1
+    A2 -->|"traffic"| B2
 ```
 
 > **CCIE Exam Tip:** PFC is the cornerstone of DC QoS. You MUST know how to configure
@@ -1181,18 +1176,21 @@ CoPP status: Enabled
 
 ### Topology
 
+```mermaid
+graph TD
+    subgraph "Leaf-1"
+        L["Leaf-1"]
+    end
+    SP["Spine (trusted)"]
+    HA["Host-A (untrusted)"]
+    HB["Host-B (untrusted)"]
+    DHCP["DHCP Server<br/>10.10.10.254"]
+    L ---|"Eth1/49 trunk"| SP
+    L ---|"Eth1/1 access"| HA
+    L ---|"Eth1/2 access"| HB
+    SP --- DHCP
 ```
-+-------------------+
-|   Leaf-1          |
-|                   |
-| Eth1/49 (trunk)   |-----> Uplink to Spine (trusted)
-| Eth1/1 (access)   |-----> Host-A (untrusted)
-| Eth1/2 (access)   |-----> Host-B (untrusted)
-+-------------------+
-
 VLAN 10: 10.10.10.0/24
-DHCP Server: 10.10.10.254 (reachable via Eth1/49)
-```
 
 ### Configuration
 

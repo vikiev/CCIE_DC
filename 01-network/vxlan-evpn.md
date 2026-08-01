@@ -52,36 +52,28 @@ use port 8472 (Linux default), but Cisco NX-OS uses 4789.
 
 ### VXLAN Encapsulation Format
 
-```
-+------------------------------------------------------------------+
-|                    OUTER ETHERNET HEADER (14 bytes)               |
-|  Dst MAC (next-hop) | Src MAC (VTEP) | EtherType (0x0800)       |
-+------------------------------------------------------------------+
-|                    OUTER IP HEADER (20 bytes)                     |
-|  Src IP (ingress VTEP) | Dst IP (egress VTEP) | Protocol (UDP)  |
-+------------------------------------------------------------------+
-|                    UDP HEADER (8 bytes)                           |
-|  Src Port (entropy) | Dst Port (4789) | Length | Checksum        |
-+------------------------------------------------------------------+
-|                    VXLAN HEADER (8 bytes)                         |
-|  Flags (I=1) | Reserved | VNI (24-bit) | Reserved                |
-+------------------------------------------------------------------+
-|                    ORIGINAL L2 FRAME (inner)                      |
-|  Inner Dst MAC | Inner Src MAC | EtherType | Payload | FCS       |
-+------------------------------------------------------------------+
-
-Total overhead: 14 + 20 + 8 + 8 = 50 bytes
+```mermaid
+graph TD
+    subgraph "VXLAN Encapsulation (50 bytes overhead)"
+        H1["OUTER ETHERNET HEADER (14 bytes)<br/>Dst MAC next-hop | Src MAC VTEP | EtherType 0x0800"]
+        H2["OUTER IP HEADER (20 bytes)<br/>Src IP ingress VTEP | Dst IP egress VTEP | Protocol UDP"]
+        H3["UDP HEADER (8 bytes)<br/>Src Port entropy | Dst Port 4789 | Length | Checksum"]
+        H4["VXLAN HEADER (8 bytes)<br/>Flags I=1 | Reserved | VNI 24-bit | Reserved"]
+        H5["ORIGINAL L2 FRAME (inner)<br/>Inner Dst MAC | Inner Src MAC | EtherType | Payload | FCS"]
+    end
+    H1 --- H2 --- H3 --- H4 --- H5
 ```
 
 VXLAN header detail (8 bytes):
-```
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|R|R|R|R|I|R|R|R|            Reserved                           |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                VXLAN Network Identifier (VNI) |   Reserved    |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```mermaid
+graph LR
+    subgraph "VXLAN Header (8 bytes)"
+        A["R R R R I R R R<br/>Flags byte"]
+        B["Reserved<br/>3 bytes"]
+        C["VNI<br/>24-bit"]
+        D["Reserved<br/>1 byte"]
+    end
+    A --- B --- C --- D
 ```
 
 - I flag (bit 4): set to 1, indicates VNI field is valid
@@ -214,13 +206,15 @@ Purpose: Advertises Ethernet Segments for multi-homing. Two variants:
 - **Per-EVI**: advertises a specific EVPN Instance on an ES
 
 NLRI format:
-```
-+-------------------------------------------+
-| Route Distinguisher (8 bytes)             |
-| Ethernet Segment Identifier (10 bytes)    |
-| Ethernet Tag ID (4 bytes)                 |
-| MPLS Label (3 bytes)                      |
-+-------------------------------------------+
+```mermaid
+graph TD
+    subgraph "RT-1: Ethernet A-D NLRI"
+        F1["Route Distinguisher (8 bytes)"]
+        F2["Ethernet Segment Identifier (10 bytes)"]
+        F3["Ethernet Tag ID (4 bytes)"]
+        F4["MPLS Label (3 bytes)"]
+    end
+    F1 --- F2 --- F3 --- F4
 ```
 
 Use case: Multi-homing (a server connected to 2+ leaves). Not commonly tested
@@ -232,18 +226,20 @@ Purpose: Advertises MAC addresses (and optionally IP addresses) learned on a VTE
 This is the MOST IMPORTANT route type for VXLAN.
 
 NLRI format:
-```
-+-------------------------------------------+
-| Route Distinguisher (8 bytes)             |
-| Ethernet Segment Identifier (10 bytes)    |
-| Ethernet Tag ID (4 bytes)                 |
-| MAC Address Length (1 byte)               |
-| MAC Address (6 bytes)                     |
-| IP Address Length (1 byte)                |
-| IP Address (0, 4, or 16 bytes)            |
-| MPLS Label 1 (3 bytes) - for L2           |
-| MPLS Label 2 (3 bytes) - for L3 (optional)|
-+-------------------------------------------+
+```mermaid
+graph TD
+    subgraph "RT-2: MAC/IP Advertisement NLRI"
+        F1["Route Distinguisher (8 bytes)"]
+        F2["Ethernet Segment Identifier (10 bytes)"]
+        F3["Ethernet Tag ID (4 bytes)"]
+        F4["MAC Address Length (1 byte)"]
+        F5["MAC Address (6 bytes)"]
+        F6["IP Address Length (1 byte)"]
+        F7["IP Address (0, 4, or 16 bytes)"]
+        F8["MPLS Label 1 (3 bytes) - for L2"]
+        F9["MPLS Label 2 (3 bytes) - for L3 optional"]
+    end
+    F1 --- F2 --- F3 --- F4 --- F5 --- F6 --- F7 --- F8 --- F9
 ```
 
 What it tells you:
@@ -264,12 +260,14 @@ for each VNI it participates in. Other VTEPs use these routes to build the
 replication list for BUM traffic.
 
 NLRI format:
-```
-+-------------------------------------------+
-| Route Distinguisher (8 bytes)             |
-| Ethernet Tag ID (4 bytes)                 |
-| Originating Router's IP Address           |
-+-------------------------------------------+
+```mermaid
+graph TD
+    subgraph "RT-3: IMET NLRI"
+        F1["Route Distinguisher (8 bytes)"]
+        F2["Ethernet Tag ID (4 bytes)"]
+        F3["Originating Router's IP Address"]
+    end
+    F1 --- F2 --- F3
 ```
 
 What it tells you:
@@ -293,12 +291,14 @@ Purpose: Used for multi-homing. Advertises Ethernet Segment identifiers and
 participates in DF (Designated Forwarder) election.
 
 NLRI format:
-```
-+-------------------------------------------+
-| Route Distinguisher (8 bytes)             |
-| Ethernet Segment Identifier (10 bytes)    |
-| Originating Router's IP Address           |
-+-------------------------------------------+
+```mermaid
+graph TD
+    subgraph "RT-4: Ethernet Segment NLRI"
+        F1["Route Distinguisher (8 bytes)"]
+        F2["Ethernet Segment Identifier (10 bytes)"]
+        F3["Originating Router's IP Address"]
+    end
+    F1 --- F2 --- F3
 ```
 
 Use case: Multi-homing only. Rarely configured in CCIE DC lab.
@@ -309,16 +309,18 @@ Purpose: Advertises IP prefixes for L3 services (inter-VXLAN routing, external r
 This is how L3VNI routes are propagated across the fabric.
 
 NLRI format:
-```
-+-------------------------------------------+
-| Route Distinguisher (8 bytes)             |
-| Ethernet Segment Identifier (10 bytes)    |
-| Ethernet Tag ID (4 bytes)                 |
-| IP Prefix Length (1 byte)                 |
-| IP Prefix (4 or 16 bytes)                 |
-| GW IP Address (4 or 16 bytes)             |
-| MPLS Label (3 bytes)                      |
-+-------------------------------------------+
+```mermaid
+graph TD
+    subgraph "RT-5: IP Prefix Advertisement NLRI"
+        F1["Route Distinguisher (8 bytes)"]
+        F2["Ethernet Segment Identifier (10 bytes)"]
+        F3["Ethernet Tag ID (4 bytes)"]
+        F4["IP Prefix Length (1 byte)"]
+        F5["IP Prefix (4 or 16 bytes)"]
+        F6["GW IP Address (4 or 16 bytes)"]
+        F7["MPLS Label (3 bytes)"]
+    end
+    F1 --- F2 --- F3 --- F4 --- F5 --- F6 --- F7
 ```
 
 What it tells you:
@@ -522,19 +524,17 @@ Every leaf in the fabric has the same SVI IP and MAC for each VLAN. This means:
 An Ethernet Segment represents a set of links between a device (server/switch) and
 multiple VTEPs. Used for multi-homing (dual-homed servers).
 
-```
-         +--------+     +--------+
-         | Leaf-1 |     | Leaf-2 |
-         +---+----+     +----+---+
-             |               |
-             +-------+-------+
-                     |
-              Ethernet Segment
-              (ESI: 0x01...)
-                     |
-                +----+----+
-                | Server  |
-                +---------+
+```mermaid
+graph TD
+    subgraph "VTEP Layer"
+        L1[Leaf-1]
+        L2[Leaf-2]
+    end
+    subgraph "Ethernet Segment (ESI: 0x01...)"
+        SRV[Server]
+    end
+    L1 --- SRV
+    L2 --- SRV
 ```
 
 ### DF Election (Designated Forwarder)
@@ -834,19 +834,27 @@ router bgp 65000
 Multi-site VXLAN extends the VXLAN fabric across multiple data centers.
 
 Architecture:
-```
-+------------------+                    +------------------+
-|    DC-1 Fabric   |                    |    DC-2 Fabric   |
-|                  |                    |                  |
-| Leaf  Leaf       |                    |       Leaf  Leaf |
-|   \   /          |                    |        \   /     |
-|   Spine          |                    |        Spine     |
-|     |            |                    |          |       |
-| Border Leaf      |                    |      Border Leaf |
-+-----+------------+                    +----------+-------+
-      |                                            |
-      +-------------- IPN -------------------------+
-              (Inter-Pod Network / DCI)
+```mermaid
+graph TD
+    subgraph "DC-1 Fabric"
+        L1A["Leaf"]
+        L1B["Leaf"]
+        SP1["Spine"]
+        BL1["Border Leaf"]
+        L1A --- SP1
+        L1B --- SP1
+        SP1 --- BL1
+    end
+    subgraph "DC-2 Fabric"
+        L2A["Leaf"]
+        L2B["Leaf"]
+        SP2["Spine"]
+        BL2["Border Leaf"]
+        L2A --- SP2
+        L2B --- SP2
+        SP2 --- BL2
+    end
+    BL1 ---|"IPN (Inter-Pod Network / DCI)"| BL2
 ```
 
 ### Border Leaf
@@ -881,38 +889,40 @@ The IPN is the L3 network connecting border leaves across sites:
 
 ### Topology
 
+```mermaid
+graph TD
+    subgraph "Spine Layer (AS 65000, RR)"
+        S1["Spine-1<br/>10.255.100.1<br/>AS 65000, RR"]
+        S2["Spine-2<br/>10.255.100.2<br/>AS 65000, RR"]
+    end
+    subgraph "Leaf Layer (AS 65000)"
+        L1["Leaf-1<br/>10.255.1.1"]
+        L2["Leaf-2<br/>10.255.2.1"]
+        L3["Leaf-3<br/>10.255.3.1"]
+        L4["Leaf-4<br/>10.255.4.1"]
+    end
+    subgraph "Hosts"
+        HA["Host-A<br/>10.10.10.101<br/>VLAN 10, VNI 10010"]
+        HB["Host-B<br/>10.10.10.102<br/>VLAN 10, VNI 10010"]
+        HC["Host-C<br/>10.10.20.101<br/>VLAN 20, VNI 10020"]
+        HD["Host-D<br/>10.10.20.102<br/>VLAN 20, VNI 10020"]
+    end
+    S1 --- L1
+    S1 --- L2
+    S1 --- L3
+    S1 --- L4
+    S2 --- L1
+    S2 --- L2
+    S2 --- L3
+    S2 --- L4
+    L1 --- HA
+    L2 --- HB
+    L3 --- HC
+    L4 --- HD
 ```
-                    +-----------+     +-----------+
-                    | Spine-1   |     | Spine-2   |
-                    | 10.255.   |     | 10.255.   |
-                    | 100.1     |     | 100.2     |
-                    | AS 65000  |     | AS 65000  |
-                    | RR        |     | RR        |
-                    +-+--+--+--+     +--+--+--+--+
-                      |  |  |           |  |  |
-                 E1/1 |  |  | E1/3     |  |  | E1/3
-                 E1/2 |  |  | E1/4     |  |  | E1/4
-                      |  |  |           |  |  |
-              +-------+  |  +-------+   |  |  +-------+
-              |          |          |   |  |          |
-         +----+---+ +----+---+ +----+---+ +----+---+
-         |Leaf-1  | |Leaf-2  | |Leaf-3  | |Leaf-4  |
-         |10.255. | |10.255. | |10.255. | |10.255. |
-         |1.1     | |2.1     | |3.1     | |4.1     |
-         |AS 65000| |AS 65000| |AS 65000| |AS 65000|
-         +----+---+ +----+---+ +----+---+ +----+---+
-              |          |          |          |
-           VLAN 10    VLAN 10    VLAN 20    VLAN 20
-           VNI 10010  VNI 10010  VNI 10020  VNI 10020
-              |          |          |          |
-           Host-A     Host-B     Host-C     Host-D
-           10.10.     10.10.     10.10.     10.10.
-           10.101     10.102     20.101     20.102
-
 Underlay: OSPF Area 0, /31 P2P links
 Overlay: BGP EVPN, iBGP, Spines as RR
 L3VNI: 500001 (VRF PROD)
-```
 
 ### Spine-1 Configuration
 
@@ -1266,20 +1276,21 @@ PING 10.10.20.101 (10.10.20.101): 56 data bytes
 
 ### Packet Flow: Host-A (VNI 10010) -> Host-C (VNI 10020)
 
-```
-1. Host-A (10.10.10.101) sends packet to 10.10.20.101
-2. Host-A ARPs for gateway 10.10.10.1 -> Leaf-1 responds (anycast MAC)
-3. Host-A sends frame: src=Host-A MAC, dst=anycast-gw MAC
-4. Leaf-1 receives on VLAN 10, looks up dst IP 10.10.20.101
-5. Leaf-1 routes: VRF PROD -> 10.10.20.0/24 via 10.255.3.1 (L3VNI 500001)
-6. Leaf-1 encapsulates:
-   - Inner frame: src=anycast MAC, dst=Host-C MAC
-   - VXLAN VNI: 500001 (L3VNI)
-   - Outer IP: src=10.255.1.1, dst=10.255.3.1
-7. Packet routed through underlay to Leaf-3
-8. Leaf-3 decapsulates (VNI 500001 -> VRF PROD)
-9. Leaf-3 routes: VRF PROD -> 10.10.20.101 is local (VLAN 20)
-10. Leaf-3 delivers frame to Host-C on VLAN 20
+```mermaid
+sequenceDiagram
+    participant HA as Host-A (10.10.10.101)
+    participant L1 as Leaf-1 (10.255.1.1)
+    participant U as Underlay
+    participant L3 as Leaf-3 (10.255.3.1)
+    participant HC as Host-C (10.10.20.101)
+    HA->>L1: ARP for gateway 10.10.10.1
+    L1-->>HA: ARP reply (anycast MAC)
+    HA->>L1: Frame: dst=anycast-gw MAC, dst IP=10.10.20.101
+    L1->>L1: Route VRF PROD: 10.10.20.0/24 via 10.255.3.1
+    L1->>U: VXLAN encap: VNI 500001, src=10.255.1.1, dst=10.255.3.1
+    U->>L3: Routed through underlay
+    L3->>L3: Decap VNI 500001, route VRF PROD to VLAN 20
+    L3->>HC: Deliver frame on VLAN 20
 ```
 
 ---

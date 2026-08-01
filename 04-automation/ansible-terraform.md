@@ -16,22 +16,21 @@
 
 ### Core Components
 
-```text
-+-------------------+
-| Control Node      |  (where Ansible runs)
-| - ansible.cfg     |
-| - inventory       |
-| - playbooks       |
-| - roles           |
-+--------+----------+
-         | SSH / HTTPS / NX-API
-         |
-+--------+----------+---------+---------+
-| Managed Node 1    | Node 2  | Node 3  |
-| (Nexus 9000)      | (Nexus) | (APIC)  |
-| No agent needed   |         |         |
-+-------------------+---------+---------+
+```mermaid
+graph TD
+    subgraph Control["Control Node (where Ansible runs)"]
+        cfg["ansible.cfg"]
+        inv["inventory"]
+        pb["playbooks"]
+        roles["roles"]
+    end
 
+    Control -->|"SSH / HTTPS / NX-API"| N1["Managed Node 1<br/>(Nexus 9000)<br/>No agent needed"]
+    Control -->|"SSH / HTTPS / NX-API"| N2["Managed Node 2<br/>(Nexus)"]
+    Control -->|"SSH / HTTPS / NX-API"| N3["Managed Node 3<br/>(APIC)"]
+```
+
+```text
 Key concepts:
   - Control node: runs playbooks (Linux/Mac, NOT Windows)
   - Managed nodes: targets (switches, APIC, servers)

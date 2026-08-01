@@ -43,18 +43,14 @@ Network requirements:
 
 ### Cluster Setup
 
-```text
-NDFC cluster (3-node):
-  +--------+     +--------+     +--------+
-  | NDFC-1 |     | NDFC-2 |     | NDFC-3 |
-  | (active)|     |(standby)|     |(standby)|
-  +----+---+     +---+----+     +---+----+
-       |              |              |
-       +--------------+--------------+
-                      |
-              Cluster VIP (floating)
-              192.168.1.50
+```mermaid
+graph TD
+    N1["NDFC-1<br/>(active)"] --- VIP["Cluster VIP (floating)<br/>192.168.1.50"]
+    N2["NDFC-2<br/>(standby)"] --- VIP
+    N3["NDFC-3<br/>(standby)"] --- VIP
+```
 
+```text
 Cluster operation:
   - Active node: handles all requests
   - Standby nodes: replicate state, ready for failover
@@ -669,36 +665,17 @@ else:
 
 ### Nexus Dashboard Platform
 
-```text
-Nexus Dashboard is the unified platform hosting:
-  +------------------------------------------+
-  |         Nexus Dashboard                   |
-  |                                          |
-  |  +----------------------------------+   |
-  |  | Fabric Controller (NDFC)         |   |
-  |  | - NX-OS fabric management        |   |
-  |  | - VXLAN, LAN fabrics             |   |
-  |  +----------------------------------+   |
-  |                                          |
-  |  +----------------------------------+   |
-  |  | Orchestrator (Multi-site ACI)    |   |
-  |  | - Multi-fabric ACI management    |   |
-  |  | - Stretched tenants/EPGs         |   |
-  |  +----------------------------------+   |
-  |                                          |
-  |  +----------------------------------+   |
-  |  | Insights (Analytics)             |   |
-  |  | - Telemetry collection           |   |
-  |  | - Path trace, health score       |   |
-  |  | - Anomaly detection              |   |
-  |  +----------------------------------+   |
-  |                                          |
-  |  +----------------------------------+   |
-  |  | Services (App Hosting)           |   |
-  |  | - ISE, Tetration, third-party    |   |
-  |  +----------------------------------+   |
-  +------------------------------------------+
+```mermaid
+graph TD
+    subgraph ND["Nexus Dashboard"]
+        FC["Fabric Controller (NDFC)<br/>- NX-OS fabric management<br/>- VXLAN, LAN fabrics"]
+        ORCH["Orchestrator (Multi-site ACI)<br/>- Multi-fabric ACI management<br/>- Stretched tenants/EPGs"]
+        INS["Insights (Analytics)<br/>- Telemetry collection<br/>- Path trace, health score<br/>- Anomaly detection"]
+        SVC["Services (App Hosting)<br/>- ISE, Tetration, third-party"]
+    end
+```
 
+```text
 Deployment:
   - Nexus Dashboard is a 3-node cluster (VMs)
   - Services deployed as containers on the platform

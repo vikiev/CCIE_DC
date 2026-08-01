@@ -184,26 +184,36 @@ ip pim rp-address 10.255.255.1 group-list 239.0.0.0/8
 
 ### Topology
 
+```mermaid
+graph TD
+    subgraph "Spine Layer"
+        S1["Spine-1<br/>RP<br/>10.255.100.1"]
+        S2["Spine-2<br/>10.255.100.2"]
+    end
+    subgraph "Leaf Layer"
+        L1[Leaf-1]
+        L2[Leaf-2]
+        L3[Leaf-3]
+        L4[Leaf-4]
+    end
+    subgraph "Endpoints"
+        SRC["Src<br/>10.10.10.100"]
+        R1["Rcvr<br/>10.10.10.101"]
+        R2["Rcvr<br/>10.10.10.102"]
+        R3["Rcvr<br/>10.10.10.103"]
+    end
+    S1 --- L1
+    S1 --- L2
+    S2 --- L3
+    S2 --- L4
+    L1 --- SRC
+    L2 --- R1
+    L3 --- R2
+    L4 --- R3
 ```
-              +-----------+     +-----------+
-              | Spine-1   |     | Spine-2   |
-              | RP        |     |           |
-              | 10.255.   |     | 10.255.   |
-              | 100.1     |     | 100.2     |
-              +-+------+--+     +--+------+--+
-                |      |           |      |
-           +----+--+ +-+----+ +----+--+ +-+----+
-           |Leaf-1 | |Leaf-2| |Leaf-3 | |Leaf-4|
-           +---+---+ +--+--+ +---+---+ +--+---+
-               |        |         |        |
-            Src       Rcvr     Rcvr      Rcvr
-           10.10.    10.10.   10.10.    10.10.
-           10.100    10.101   10.102    10.103
-
 Multicast source: 10.10.10.100 sending to 239.1.1.1
 Receivers: 10.10.10.101-103 joined 239.1.1.1
 Underlay PIM: Spine-1 is RP (10.255.100.1)
-```
 
 ### Spine-1 Configuration (RP)
 
@@ -425,17 +435,23 @@ IP Multicast Routing Table for VRF "PROD"
 
 When a multicast source starts sending in PIM Sparse Mode:
 
-```
-1. Source sends multicast to group G
-2. First-hop router (DR) receives traffic on source-facing interface
-3. DR encapsulates traffic in PIM Register message (unicast to RP)
-4. RP receives Register, creates (S,G) state
-5. RP sends PIM Join toward source (builds SPT from RP to source)
-6. RP sends Register-Stop to DR (once SPT is established)
-7. DR switches to native multicast forwarding (no more encapsulation)
-8. Receivers send IGMP Join -> last-hop router sends PIM Join toward RP
-9. RP forwards traffic down the shared tree (*,G) to receivers
-10. Last-hop router may switch to SPT (shortest path tree) if threshold exceeded
+```mermaid
+sequenceDiagram
+    participant S as Source
+    participant DR as First-hop DR
+    participant RP as RP
+    participant LHR as Last-hop Router
+    participant R as Receiver
+    S->>DR: Multicast to group G
+    DR->>RP: PIM Register (unicast encapsulation)
+    RP->>RP: Create (S,G) state
+    RP->>S: PIM Join toward source (builds SPT)
+    RP->>DR: Register-Stop (SPT established)
+    DR->>RP: Native multicast forwarding (no encapsulation)
+    R->>LHR: IGMP Join
+    LHR->>RP: PIM Join toward RP
+    RP->>LHR: Forward traffic down shared tree (*,G)
+    LHR->>LHR: May switch to SPT if threshold exceeded
 ```
 
 Key commands to verify each stage:
@@ -454,26 +470,13 @@ show ip pim df                (PIM DF for multi-access)
 
 ## VXLAN BUM Decision Tree
 
-```
-BUM frame arrives at ingress VTEP
-         |
-         v
-+------------------+     YES    +---------------------------+
-| EVPN IMET (RT-3) |----------->| Ingress Replication:      |
-| routes exist?    |            | Replicate to each VTEP    |
-+------------------+            | in IMET flood list        |
-         | NO                   +---------------------------+
-         v
-+------------------+     YES    +---------------------------+
-| VNI has mcast-   |----------->| Underlay Multicast:       |
-| group configured?|            | Encapsulate BUM in UDP    |
-+------------------+            | to mcast group, PIM in    |
-         | NO                   | underlay handles repl.    |
-         v                      +---------------------------+
-+------------------+
-| Headend flood to |
-| ALL VTEPs        |  (flood-and-learn, inefficient)
-+------------------+
+```mermaid
+flowchart TD
+    A["BUM frame arrives at ingress VTEP"] --> B{"EVPN IMET (RT-3)<br/>routes exist?"}
+    B -->|YES| C["Ingress Replication:<br/>Replicate to each VTEP<br/>in IMET flood list"]
+    B -->|NO| D{"VNI has mcast-group<br/>configured?"}
+    D -->|YES| E["Underlay Multicast:<br/>Encapsulate BUM in UDP<br/>to mcast group, PIM in<br/>underlay handles replication"]
+    D -->|NO| F["Headend flood to<br/>ALL VTEPs<br/>(flood-and-learn, inefficient)"]
 ```
 
 Decision criteria:
